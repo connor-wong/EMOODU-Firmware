@@ -1,111 +1,168 @@
-#include <display_tile_driver.h>
+#include "display_tile_driver.h"
+#include <pgmspace.h>
 
-Adafruit_ST7735 tft1 = Adafruit_ST7735(TILE_CS_1, TILE_DC, TILE_SDA, TILE_SCL, TILE_RES);
-Adafruit_ST7735 tft2 = Adafruit_ST7735(TILE_CS_2, TILE_DC, TILE_SDA, TILE_SCL, TILE_RES);
-Adafruit_ST7735 tft3 = Adafruit_ST7735(TILE_CS_3, TILE_DC, TILE_SDA, TILE_SCL, TILE_RES);
-Adafruit_ST7735 tft4 = Adafruit_ST7735(TILE_CS_4, TILE_DC, TILE_SDA, TILE_SCL, TILE_RES);
-
-const uint16_t* const IMAGES[] = {
-  image_256x256_playground,
-  image_256x256_food,
-  image_256x256_singer,
-  image_256x256_dog
-};
-
-void display_tile_setup(void) {
-  display_tile_init(tft1);
-  display_tile_init(tft2);
-  display_tile_init(tft3);
-  display_tile_init(tft4);
+DisplayTileDriver::DisplayTileDriver(uint8_t cs1, uint8_t cs2, uint8_t cs3, uint8_t cs4, uint8_t dummy)
+    : _cs1(cs1), _cs2(cs2), _cs3(cs3), _cs4(cs4), _dummy(dummy), _rotation(0) {
 }
 
-void display_tile_init(Adafruit_ST7735 &tft) {
-  tft.initR(INITR_144GREENTAB); // for 1.44" ST7735 (128x128)
-  tft.setRotation(0);            
-  tft.fillScreen(ST77XX_BLACK);
-}
-
-
-/*
-
-For testing purpose
-
-void single_tile_test (Adafruit_ST7735 &tft) {
-  const int w = 128, h = 128;
-
-  tft.initR(INITR_144GREENTAB);
-  tft.fillScreen(ST77XX_BLACK);
-
-  drawImage(tft, 0, 0, w, h, 0, 0, image_128x128, IMG_WIDTH);
-}
-
-void dual_tile_test (void) {
-  const int w = 128, h = 128;
-
-  display_tile_init(tft1);
-  display_tile_init(tft2);
-  display_tile_init(tft3);
-  display_tile_init(tft4);
-
-  // Top Left: src window (0,0) → (128x128), draw at (0,0)
-  drawImage(tft1, 0, 0, w, h, 0,   0, image_256x128, IMG_WIDTH);
-
-  // Top Right: src window (128,0) → (128x128), draw at (0,0)
-  drawImage(tft2, 0, 0, w, h, 128, 0, image_256x128, IMG_WIDTH);
-
-  // Bottom Left: src window (0,0) → (128x128), draw at (0,0)
-  drawImage(tft3, 0, 0, w, h, 0,   0, image_256x128, IMG_WIDTH);
-
-  // Bottom Right: src window (128,0) → (128x128), draw at (0,0)
-  drawImage(tft4, 0, 0, w, h, 128, 0, image_256x128, IMG_WIDTH);
-}
-
-*/
-
-void full_tile_test (void) {
-  const int w = 128, h = 128;
-  
-  // display_tile_init(tft1);
-  // display_tile_init(tft2);
-  // display_tile_init(tft3);
-  // display_tile_init(tft4);
-
-  // 1: src window (0, 0) → (128x128), draw at (0,0)
-  drawImage(tft1, 0, 0, w, h, 0, 0, image_256x256_dog, IMG_WIDTH);
-
-  // 2: src window (128, 0) → (128x128), draw at (0,0)
-  drawImage(tft2, 0, 0, w, h, 128, 0, image_256x256_dog, IMG_WIDTH);
-
-  // 3: src window (0, 128) → (128x128), draw at (0,0)
-  drawImage(tft3, 0, 0, w, h, 0, 128, image_256x256_dog, IMG_WIDTH);
-
-  // 4: src window (128, 128) → (128x128), draw at (0,0)
-  drawImage(tft4, 0, 0, w, h, 128, 128, image_256x256_dog, IMG_WIDTH);
-}
-
-void drawAll(uint8_t index) {
-  const uint16_t* src = IMAGES[index];
-  const int W = 128, H = 128;
-
-  drawImage(tft1, 0, 0, W, H,   0,   0, src, IMG_WIDTH);
-  drawImage(tft2, 0, 0, W, H, 128,   0, src, IMG_WIDTH);
-  drawImage(tft3, 0, 0, W, H,   0, 128, src, IMG_WIDTH);
-  drawImage(tft4, 0, 0, W, H, 128, 128, src, IMG_WIDTH);
-}
-
-static void drawImage(Adafruit_ST7735 &tft, int16_t dstX, int16_t dstY, int16_t w, int16_t h, int16_t srcX, int16_t srcY, const uint16_t *src, int16_t srcStride) {
-  uint16_t line[128];  // buffer for one row
-
-  tft.startWrite();
-
-  for (int16_t row = 0; row < h; row++) {
-    // Read one line from PROGMEM
-    for (int16_t col = 0; col < w; col++) {
-      line[col] = pgm_read_word(&src[(srcY + row) * srcStride + (srcX + col)]);
+void DisplayTileDriver::begin() {
+    // Configure all CS pins as outputs
+    pinMode(_dummy, OUTPUT);
+    pinMode(_cs1, OUTPUT);
+    pinMode(_cs2, OUTPUT);
+    pinMode(_cs3, OUTPUT);
+    pinMode(_cs4, OUTPUT);
+    
+    // Deselect all displays
+    deselectAll();
+    delay(100);
+    
+    // Initialize dummy display first (workaround for ESP32-S3)
+    selectTile(0);
+    _tft.init();
+    _tft.setRotation(_rotation);
+    deselectAll();
+    delay(50);
+    
+    // Initialize each tile
+    for (uint8_t i = 1; i <= NUM_TILES; i++) {
+        selectTile(i);
+        delay(10);
+        _tft.init();
+        _tft.setRotation(_rotation);
+        _tft.fillScreen(TFT_BLACK);
+        deselectAll();
+        delay(50);
     }
+}
 
-    tft.setAddrWindow(dstX, dstY + row, w, 1);
-    tft.writePixels(line, w);
-  }
-  tft.endWrite();
+void DisplayTileDriver::selectTile(uint8_t tileNum) {
+    deselectAll();
+    delayMicroseconds(10);
+    
+    if (tileNum == 0) {
+        digitalWrite(_dummy, LOW);
+    } else {
+        uint8_t csPin = getTileCSPin(tileNum);
+        if (csPin != 0) {
+            digitalWrite(csPin, LOW);
+        }
+    }
+    
+    delayMicroseconds(10);
+}
+
+void DisplayTileDriver::deselectAll() {
+    digitalWrite(_dummy, HIGH);
+    digitalWrite(_cs1, HIGH);
+    digitalWrite(_cs2, HIGH);
+    digitalWrite(_cs3, HIGH);
+    digitalWrite(_cs4, HIGH);
+}
+
+uint8_t DisplayTileDriver::getTileCSPin(uint8_t tileNum) {
+    switch(tileNum) {
+        case 1: return _cs1;
+        case 2: return _cs2;
+        case 3: return _cs3;
+        case 4: return _cs4;
+        default: return 0;
+    }
+}
+
+void DisplayTileDriver::displayImage(const uint16_t* imageArray, uint16_t imageWidth, uint16_t imageHeight) {
+    uint16_t lineBuffer[TILE_WIDTH];
+    
+    for (uint8_t tileIdx = 0; tileIdx < NUM_TILES; tileIdx++) {
+        selectTile(tileIdx + 1);
+        
+        _tft.setAddrWindow(0, 0, TILE_WIDTH, TILE_HEIGHT);
+        
+        for (uint16_t y = 0; y < TILE_HEIGHT && y < imageHeight; y++) {
+            uint16_t xOffset = tileIdx * TILE_WIDTH;
+            
+            // Copy line from image array
+            for (uint16_t x = 0; x < TILE_WIDTH; x++) {
+                if (x + xOffset < imageWidth) {
+                    uint32_t pixelIndex = y * imageWidth + x + xOffset;
+                    lineBuffer[x] = imageArray[pixelIndex];
+                } else {
+                    lineBuffer[x] = 0; // Black for out of bounds
+                }
+            }
+            
+            _tft.pushColors(lineBuffer, TILE_WIDTH);
+        }
+        
+        deselectAll();
+        delay(5);
+    }
+}
+
+void DisplayTileDriver::displayImagePROGMEM(const uint16_t* imageArray, uint16_t imageWidth, uint16_t imageHeight) {
+    uint16_t lineBuffer[TILE_WIDTH];
+    
+    for (uint8_t tileIdx = 0; tileIdx < NUM_TILES; tileIdx++) {
+        selectTile(tileIdx + 1);
+        
+        _tft.setAddrWindow(0, 0, TILE_WIDTH, TILE_HEIGHT);
+        
+        for (uint16_t y = 0; y < TILE_HEIGHT && y < imageHeight; y++) {
+            uint16_t xOffset = tileIdx * TILE_WIDTH;
+            
+            // Read from PROGMEM into line buffer
+            for (uint16_t x = 0; x < TILE_WIDTH; x++) {
+                if (x + xOffset < imageWidth) {
+                    uint32_t pixelIndex = y * imageWidth + x + xOffset;
+                    lineBuffer[x] = pgm_read_word(&imageArray[pixelIndex]);
+                } else {
+                    lineBuffer[x] = 0; // Black for out of bounds
+                }
+            }
+            
+            _tft.pushColors(lineBuffer, TILE_WIDTH);
+        }
+        
+        deselectAll();
+        delay(5);
+    }
+}
+
+void DisplayTileDriver::clearAll(uint16_t color) {
+    for (uint8_t i = 1; i <= NUM_TILES; i++) {
+        selectTile(i);
+        _tft.fillScreen(color);
+        deselectAll();
+    }
+}
+
+void DisplayTileDriver::setRotation(uint8_t rotation) {
+    _rotation = rotation;
+    for (uint8_t i = 1; i <= NUM_TILES; i++) {
+        selectTile(i);
+        _tft.setRotation(_rotation);
+        deselectAll();
+    }
+}
+
+void DisplayTileDriver::displayTestPattern() {
+    for (uint8_t i = 1; i <= NUM_TILES; i++) {
+        selectTile(i);
+        
+        // Different color for each tile
+        uint16_t colors[] = {TFT_RED, TFT_GREEN, TFT_BLUE, TFT_YELLOW};
+        _tft.fillScreen(colors[i - 1]);
+        
+        // Display tile number
+        _tft.setCursor(30, 100);
+        _tft.setTextColor(TFT_WHITE);
+        _tft.setTextSize(5);
+        _tft.printf("Tile %d", i);
+        
+        deselectAll();
+    }
+}
+
+TFT_eSPI& DisplayTileDriver::getTFT() {
+    return _tft;
 }

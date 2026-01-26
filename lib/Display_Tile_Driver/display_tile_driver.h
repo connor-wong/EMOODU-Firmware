@@ -4,9 +4,6 @@
 #include <TFT_eSPI.h>
 #include <Arduino.h>
 
-// Image Array
-#include <image_240x240.h>
-
 // Display configuration
 #define TILE_WIDTH 240
 #define TILE_HEIGHT 240

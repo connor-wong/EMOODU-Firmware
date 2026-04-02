@@ -79,18 +79,30 @@ bool BluetoothDriver::sendRaw(const char* payload) {
 }
 
 // =====================================================================
-// sendJson()  –  {"mood":"<id>","module":"<mod>","battery":<bat>}
+// sendModulesJson()
+// {"battery":<n>,"modules":[{"id":<n>,"state":<n>}, ...]}
 // =====================================================================
-bool BluetoothDriver::sendJson(int moodId, const char* module, int battery) {
-  if (!_connected) {
-    return false;
+bool BluetoothDriver::sendModulesJson(const ModuleData modules[],
+                                      int moduleCount,
+                                      int battery) {
+  if (!_connected) return false;
+
+  // Max size: {"battery":100,"modules":[{"id":99,"state":3},{"id":99,"state":3},{"id":99,"state":3},{"id":99,"state":3}]}
+  char buf[200];
+  int  pos = 0;
+
+  pos += snprintf(buf + pos, sizeof(buf) - pos,
+                  "{\"battery\":%d,\"modules\":[", battery);
+
+  for (int i = 0; i < moduleCount; i++) {
+    pos += snprintf(buf + pos, sizeof(buf) - pos,
+                    "{\"id\":%d,\"state\":%d}%s",
+                    modules[i].moduleId,
+                    modules[i].state,
+                    (i < moduleCount - 1) ? "," : "");
   }
 
-  // Stack-allocated buffer (no heap allocation in hot path)
-  char buf[128];
-  snprintf(buf, sizeof(buf),
-           "{\"mood\":\"%d\",\"module\":\"%s\",\"battery\":%d}",
-           moodId, module, battery);
+  snprintf(buf + pos, sizeof(buf) - pos, "]}");
 
   return sendRaw(buf);
 }

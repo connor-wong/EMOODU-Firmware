@@ -1,7 +1,7 @@
 #include "potentiometer_driver.h"
 
 // ── Debug Flags ──────────────────────────────────────────────────────────────
-#define POT_DEBUG 1
+#define POT_DEBUG 0
 
 // =====================================================================
 // Constructor

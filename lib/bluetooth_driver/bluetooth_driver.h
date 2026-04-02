@@ -61,10 +61,19 @@ public:
   // notification.  Returns false if no client is connected.
   bool sendRaw(const char* payload);
 
-  // Convenience wrapper: builds {"mood":"<moodId>","module":"<module>",
-  // "battery":<battery>} and notifies.
+  // Holds the state for a single module slot for use in sendModulesJson.
+  //   moduleId – integer ID read from the voltage divider ADC (0 = no module)
+  //   state    – EmotionState cast to int (0–3)
+  struct ModuleData {
+    int moduleId;
+    int state;
+  };
+
+  // Sends a combined JSON payload for all 4 module slots plus battery:
+  //   {"battery":<n>,"modules":[{"id":<n>,"state":<n>}, ...]}
   // Returns false if no client is connected.
-  bool sendJson(int moodId, const char* module, int battery);
+  // Pass MODULE_COUNT (4) elements in the modules array.
+  bool sendModulesJson(const ModuleData modules[], int moduleCount, int battery);
 
   // -------------------------------------------------------------------
   // Event callbacks (optional – set before calling begin())

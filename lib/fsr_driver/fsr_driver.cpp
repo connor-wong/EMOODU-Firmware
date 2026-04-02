@@ -1,5 +1,8 @@
 #include "fsr_driver.h"
 
+// ── Debug Flags ──────────────────────────────────────────────────────────────
+#define FSR_DEBUG 1
+
 // =====================================================================
 // Constructor
 // =====================================================================
@@ -24,9 +27,12 @@ void FsrDriver::begin() {
   analogSetAttenuation(ADC_11db);  // Full 0–3.3 V range on ESP32
   pinMode(_pin, INPUT);
   _windowStart = millis();
-  Serial.printf("[FSR] Driver started on pin %d "
+
+  #if FSR_DEBUG
+    Serial.printf("[FSR] Driver started on pin %d "
                 "(on=%d, off=%d, window=%lums)\n",
                 _pin, _thresholdOn, _thresholdOff, _windowMs);
+  #endif
 }
 
 // =====================================================================
@@ -42,8 +48,11 @@ void FsrDriver::update() {
       _squeezeCount++;
       _isSqueezed     = true;
       _lastSqueezeTime = now;
+
+      #if FSR_DEBUG
       Serial.printf("[FSR] Squeeze #%d detected (raw=%d)\n",
                     _squeezeCount, _rawValue);
+      #endif
     }
   }
 
@@ -55,8 +64,10 @@ void FsrDriver::update() {
   if (now - _windowStart >= _windowMs) {
     EmotionState newState = _computeState(_squeezeCount);
 
+    #if FSR_DEBUG
     Serial.printf("[FSR] Window closed — squeezes: %d → %s\n",
                   _squeezeCount, emotionStateToString(newState));
+    #endif
 
     if (_onStateChange) {
       _onStateChange(newState, _squeezeCount);

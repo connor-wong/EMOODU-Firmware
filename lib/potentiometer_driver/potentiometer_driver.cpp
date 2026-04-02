@@ -1,5 +1,8 @@
 #include "potentiometer_driver.h"
 
+// ── Debug Flags ──────────────────────────────────────────────────────────────
+#define POT_DEBUG 1
+
 // =====================================================================
 // Constructor
 // =====================================================================
@@ -30,11 +33,14 @@ void PotentiometerDriver::begin() {
                                        // spurious first-sample spike
   _windowStart = millis();
 
+  #if POT_DEBUG
   Serial.printf("[POT] Driver started on pin %d "
                 "(deltaThreshold=%d, window=%lums)\n",
                 _pin, _deltaThreshold, _windowMs);
+
   Serial.printf("[POT] Limits — selfReg:%d  active:%d  overwhelm:%d\n",
                 _limitSelfReg, _limitActive, _limitOverwhelm);
+  #endif
 }
 
 // =====================================================================
@@ -56,8 +62,10 @@ void PotentiometerDriver::update() {
   if (millis() - _windowStart >= _windowMs) {
     EmotionState newState = _computeState(_activityCount);
 
+    #if POT_DEBUG
     Serial.printf("[POT] Window closed — activity: %d → %s\n",
                   _activityCount, emotionStateToString(newState));
+    #endif
 
     if (_onStateChange) {
       _onStateChange(newState, _activityCount);

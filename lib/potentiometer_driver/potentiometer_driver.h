@@ -47,10 +47,10 @@ public:
   //   sampleDelayMs   – ms to wait between samples in update(), default 10
   // -------------------------------------------------------------------
   PotentiometerDriver(int pin,
-                      int           deltaThreshold = 100,
-                      int           limitSelfReg   = 15,
-                      int           limitActive    = 30,
-                      int           limitOverwhelm = 45,
+                      int           deltaThreshold = 123, // 3% of total range  
+                      int           limitSelfReg   = 7,
+                      int           limitActive    = 14,
+                      int           limitOverwhelm = 21,
                       unsigned long windowMs       = 1000,
                       unsigned long sampleDelayMs  = 10);
 

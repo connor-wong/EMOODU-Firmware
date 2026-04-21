@@ -54,6 +54,7 @@ void FsrDriver::update() {
       #if FSR_DEBUG
       Serial.printf("[FSR] Squeeze #%d detected (raw=%d)\n",
                     _squeezeCount, _rawValue);
+      Serial.printf("[FSR] Raw value: %d\n", _rawValue);
       #endif
     }
   }

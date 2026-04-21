@@ -38,6 +38,8 @@ enum class SensorType : uint8_t {
   None          = 0,
   FSR           = 1,
   Potentiometer = 2,
+  RUB           = 3, // same as FSR but with different thresholds and state mapping
+  PUSH          = 4, // same as FSR but with different thresholds and state mapping
 };
 
 // =====================================================================
@@ -83,8 +85,8 @@ struct ModuleDefinition {
 };
 
 constexpr ModuleDefinition MODULE_TABLE[] = {
-  { 1100, 1500, FidgetModule::PUSH_IT,  SensorType::FSR,           "pushit"  }, // 4.7 kΩ
-  { 1700, 2300, FidgetModule::WAVE_PAD,  SensorType::FSR,           "wavepad"  }, // 10 kΩ
+  { 1100, 1500, FidgetModule::PUSH_IT,  SensorType::PUSH,           "pushit"  }, // 4.7 kΩ
+  { 1700, 2300, FidgetModule::WAVE_PAD,  SensorType::RUB,           "wavepad"  }, // 10 kΩ
   { 2500, 3100, FidgetModule::POP_IT,  SensorType::FSR,           "popit"  }, // 22 kΩ
 
   { 2250, 2650, FidgetModule::BLOOM_BOX, SensorType::Potentiometer, "bloombox" }, // 15 kΩ

@@ -108,6 +108,18 @@ static void applySlot(int i, const ModuleDefinition* def, int adc) {
       Serial.printf("[SLOT %d] %s → FSR (ADC=%d)\n", i, def->name, adc);
       break;
 
+    case SensorType::RUB:
+      slots[i].fsr = new FsrDriver(SENSOR_PINS[i], 500, 2000, 1000, 200, 5);
+      slots[i].fsr->begin();
+      Serial.printf("[SLOT %d] %s → FSR (ADC=%d)\n", i, def->name, adc);
+      break;
+
+    case SensorType::PUSH:
+      slots[i].fsr = new FsrDriver(SENSOR_PINS[i], 1000, 1500, 1000, 280, 5);
+      slots[i].fsr->begin();
+      Serial.printf("[SLOT %d] %s → FSR (ADC=%d)\n", i, def->name, adc);
+      break;
+
     default:
       Serial.printf("[SLOT %d] No module detected (ADC=%d)\n", i, adc);
       break;

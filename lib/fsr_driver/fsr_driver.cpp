@@ -42,6 +42,8 @@ void FsrDriver::update() {
   _rawValue = _readSmoothed();
   const unsigned long now = millis();
 
+  // Serial.println(_rawValue);
+
   // ── Squeeze detection (hysteresis + debounce) ──────────────────────
   if (!_isSqueezed && _rawValue >= _thresholdOn) {
     if (now - _lastSqueezeTime > _debounceMs) {
@@ -99,6 +101,7 @@ void FsrDriver::setOnStateChange(StateChangeCallback cb) {
 // =====================================================================
 int FsrDriver::_readSmoothed() const {
   int sum = 0;
+
   for (int i = 0; i < _smoothSamples; i++) {
     sum += analogRead(_pin);
     delay(2);

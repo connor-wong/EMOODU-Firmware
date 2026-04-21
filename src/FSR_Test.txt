@@ -1,0 +1,18 @@
+#include <Arduino.h>
+
+#define FSR_PIN 8
+
+void setup() {
+  Serial.begin(115200);
+  analogSetAttenuation(ADC_11db);  // Full 0–3.3V range (0–4095)
+  pinMode(FSR_PIN, INPUT);
+  Serial.println("FSR ADC Test — reading every 100ms");
+}
+
+void loop() {
+  int raw     = analogRead(FSR_PIN);
+  float voltage = raw * (3.3f / 4095.0f);
+
+  Serial.printf("Raw: %4d  |  Voltage: %.2fV\n", raw, voltage);
+  delay(100);
+}

@@ -26,7 +26,7 @@
 constexpr uint8_t ID_PINS[MODULE_COUNT]     = { 1,  2,  4,  5 };
 
 // ADC pins connected to the module's sensor output
-constexpr uint8_t SENSOR_PINS[MODULE_COUNT] = { 10, 11, 12, 13 };
+constexpr uint8_t SENSOR_PINS[MODULE_COUNT] = {8, 9, 10, 11};
 
 #define REED_PIN    8
 #define BATTERY_PIN 9
@@ -48,10 +48,12 @@ enum class SensorType : uint8_t {
 // =====================================================================
 enum class FidgetModule : uint8_t {
   None    = 0,
-  Twister = 1,  // Rotary knob  → Potentiometer
-  Popper  = 2,  // Squeeze bulb → FSR
-  // Spinner  = 3,
-  // Slider   = 4,
+  DJ_DISK = 1,  // Potentiometer
+  POP_IT  = 2,  // FSR
+  WAVE_PAD = 3,  // FSR
+  BLOOM_BOX = 4, // Potentiometer
+  PUSH_IT = 5,  // FSR
+  TOM = 6,     // Potentiometer
 };
 
 // =====================================================================
@@ -64,9 +66,12 @@ enum class FidgetModule : uint8_t {
 //
 //   R_module    Expected ADC    Suggested range
 //   ─────────── ─────────────── ───────────────
-//   10 kΩ       2048            1700 – 2300     ← Twister
-//   22 kΩ       2815            2500 – 3100     ← Popper
-//   47 kΩ       3376            3150 – 3600     ← (next module)
+//   4.7 kΩ      1310            1100 – 1500     ← texturepad1 (Done)
+//   10 kΩ       2048            1700 – 2300     ← texturepad2 (Done)
+//   15 kΩ       2457            2250 – 2650     ← twist1 (Done)
+//   22 kΩ       2815            2500 – 3100     ← texturepad3 (Done)
+//   47 kΩ       3376            3150 – 3600     ← twist2 (Done)
+//   75 kΩ       3610            3450 – 3850     ← twist3 (Done)
 //   No module   ~4095           outside all ranges → None
 // =====================================================================
 struct ModuleDefinition {
@@ -78,9 +83,13 @@ struct ModuleDefinition {
 };
 
 constexpr ModuleDefinition MODULE_TABLE[] = {
-  { 1700, 2300, FidgetModule::Twister, SensorType::Potentiometer, "twister" },
-  { 2500, 3100, FidgetModule::Popper,  SensorType::FSR,           "popper"  },
-  // { 3150, 3600, FidgetModule::Spinner, SensorType::FSR,        "spinner" },
+  { 1100, 1500, FidgetModule::PUSH_IT,  SensorType::FSR,           "pushit"  }, // 4.7 kΩ
+  { 1700, 2300, FidgetModule::WAVE_PAD,  SensorType::FSR,           "wavepad"  }, // 10 kΩ
+  { 2500, 3100, FidgetModule::POP_IT,  SensorType::FSR,           "popit"  }, // 22 kΩ
+
+  { 2250, 2650, FidgetModule::BLOOM_BOX, SensorType::Potentiometer, "bloombox" }, // 15 kΩ
+  { 3150, 3400, FidgetModule::DJ_DISK, SensorType::Potentiometer, "djdisk" }, // 47 kΩ
+  { 3450, 3850, FidgetModule::TOM, SensorType::Potentiometer, "tom" }, // 75 kΩ
 };
 
 constexpr int MODULE_TABLE_SIZE =

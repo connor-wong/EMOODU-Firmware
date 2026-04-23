@@ -49,13 +49,75 @@ ReedDriver reed((gpio_num_t)REED_PIN);
 // =====================================================================
 // Battery
 // =====================================================================
+#define VBAT_CALIBRATION 0.14f   // adjust until reported matches measured
+#define VBAT_MIN        3.0f   // below this → disconnected
+#define VBAT_USB_LOW    4.05f  // backfeed window low
+#define VBAT_USB_HIGH   4.15f  // backfeed window high
+
+#define BATTERY_ALPHA 0.1f   // 0.0–1.0 (lower = smoother, slower response)
+
+static float smoothedAdc = 0;
+static bool batteryInitialized = false;
 static int batteryLevel = 0;
+static int lastSentBatteryLevel = -1;
 
 int readBatteryPercent(void) {
-  // Two 200kΩ resistors → V_out = V_bat / 2
-  // LiPo: 3.0V (empty) → ADC 1861,  4.2V (full) → ADC 2606
   int raw = analogRead(BATTERY_PIN);
-  return constrain(map(raw, 1861, 2606, 0, 100), 0, 100);
+
+  if (!batteryInitialized) {
+    smoothedAdc = raw;
+    batteryInitialized = true;
+  }
+
+  // EMA smoothing
+  smoothedAdc = (BATTERY_ALPHA * raw) + ((1.0f - BATTERY_ALPHA) * smoothedAdc);
+
+  // Convert to voltage
+  float vOut = smoothedAdc * (3.3f / 4095.0f);
+  float vBat = (vOut * 2.0f) + VBAT_CALIBRATION;
+
+  // 🔋 New mapping: 3.0V → 0%, 3.9V → 100%
+  float percent = (vBat - 3.0f) / (3.9f - 3.0f) * 100.0f;
+
+  return constrain((int)percent, 0, 100);
+}
+
+float readBatteryVoltage(void) {
+  int raw = analogRead(BATTERY_PIN);
+
+  // Use same smoothing
+  if (!batteryInitialized) {
+    smoothedAdc = raw;
+    batteryInitialized = true;
+  }
+
+  smoothedAdc = (BATTERY_ALPHA * raw) + ((1.0f - BATTERY_ALPHA) * smoothedAdc);
+
+  float vOut = smoothedAdc * (3.3f / 4095.0f);
+  float vBat = (vOut * 2.0f) + VBAT_CALIBRATION;
+  return vBat;
+}
+
+static void sendBatteryIfChanged(void) {
+  if (!ble.isConnected()) return;
+
+  int newBattery = readBatteryPercent();
+
+  // Only send if battery changed
+  if (newBattery == lastSentBatteryLevel) return;
+
+  batteryLevel = newBattery;
+
+  // Build full JSON (since your frontend requires it)
+  BluetoothDriver::ModuleData moduleData[MODULE_COUNT];
+  for (int i = 0; i < MODULE_COUNT; i++) {
+    moduleData[i].moduleId = static_cast<int>(slots[i].module);
+    moduleData[i].state    = emotionStateToId(slots[i].state);
+  }
+
+  if (ble.sendModulesJson(moduleData, MODULE_COUNT, batteryLevel)) {
+    lastSentBatteryLevel = batteryLevel;
+  }
 }
 
 // =====================================================================
@@ -165,6 +227,27 @@ static void pollModuleChanges(void) {
 }
 
 // =====================================================================
+// BLE transmission  –  send full device state immediately on connect
+// =====================================================================
+static void sendDeviceState(void) {
+  if (!ble.isConnected()) return;
+  batteryLevel = readBatteryPercent();
+
+  BluetoothDriver::ModuleData moduleData[MODULE_COUNT];
+  for (int i = 0; i < MODULE_COUNT; i++) {
+    moduleData[i].moduleId = static_cast<int>(slots[i].module);
+    moduleData[i].state    = emotionStateToId(slots[i].state);
+  }
+
+  if (ble.sendModulesJson(moduleData, MODULE_COUNT, batteryLevel)) {
+    // Sync so sendIfChanged doesn't immediately re-fire
+    for (int i = 0; i < MODULE_COUNT; i++) {
+      slots[i].lastSentState = slots[i].state;
+    }
+  }
+}
+
+// =====================================================================
 // BLE transmission  –  send only when at least one slot changed state
 // =====================================================================
 static void sendIfChanged(void) {
@@ -203,6 +286,8 @@ void setup() {
   Serial.begin(115200);
 
   // ── Power saving ──────────────────────────────────────────────────
+  pinMode(48, OUTPUT);
+  digitalWrite(48, LOW); // Turn off LED
   WiFi.mode(WIFI_OFF);
   btStop();
 
@@ -226,7 +311,11 @@ void setup() {
   }
 
   // ── BLE ───────────────────────────────────────────────────────────
-  ble.setOnConnect([]()    { Serial.println("[BLE] App connected.");    });
+  ble.setOnConnect([]() {
+    Serial.println("[BLE] App connected.");
+    delay(100);
+    sendDeviceState();
+  });
   ble.setOnDisconnect([]() { Serial.println("[BLE] App disconnected."); });
   ble.begin(ESP_PWR_LVL_N9);
 
@@ -268,12 +357,17 @@ void loop() {
     pollModuleChanges();
   }
 
-  // ── Battery reading (every 30 seconds) ──────────────────────────────
-  static unsigned long lastBatRead = 0;
-  if (millis() - lastBatRead >= 30000) {
-    lastBatRead  = millis();
-    batteryLevel = readBatteryPercent();
+  // ── Battery reading (every 60 seconds) ──────────────────────────────
+  static unsigned long lastBatteryCheck = 0;
+
+  if (millis() - lastBatteryCheck >= 60000) {  // every 60 seconds
+    lastBatteryCheck = millis();
+    sendBatteryIfChanged();
   }
 
-  // Serial.println(readBatteryPercent());
+  // static unsigned long lastBatRead = 0;
+  // if (millis() - lastBatRead >= 10000) {
+  //   lastBatRead  = millis();
+  //   Serial.printf("Battery: %d%% (%.2fV)\n", readBatteryPercent(), readBatteryVoltage());
+  // }
 }
